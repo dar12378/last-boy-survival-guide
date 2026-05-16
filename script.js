@@ -5,6 +5,8 @@ const healthEl = document.getElementById("health");
 const moneyEl = document.getElementById("money");
 const arrowsEl = document.getElementById("arrows");
 const levelEl = document.getElementById("level");
+const bowStatusEl = document.getElementById("bowStatus");
+const dogStatusEl = document.getElementById("dogStatus");
 
 const bossHud = document.getElementById("bossHud");
 const bossFill = document.getElementById("bossFill");
@@ -12,12 +14,31 @@ const bossHp = document.getElementById("bossHp");
 const shopEl = document.getElementById("shop");
 const startEl = document.getElementById("start");
 
+document.getElementById("buyBow").onclick = () => {
+  if (!player.hasBow && money >= 40) {
+    money -= 40;
+    player.hasBow = true;
+    player.arrows += 10;
+    updateHud();
+  }
+};
+
+document.getElementById("buyArrows").onclick = () => {
+  if (player.hasBow && money >= 20) {
+    money -= 20;
+    player.arrows += 5;
+    updateHud();
+  }
+};
+
+document.getElementById("closeShop").onclick = () => toggleShop(false);
+
 let W = 0;
 let H = 0;
 let DPR = 1;
 
 function resize() {
-  DPR = Math.min(window.devicePixelRatio || 1, 3);
+  DPR = Math.min(window.devicePixelRatio || 1, 4);
   W = window.innerWidth;
   H = window.innerHeight;
 
@@ -60,7 +81,7 @@ let level = 1;
 let money = 0;
 let worldWidth = 3600;
 
-let attackCooldown = 0;
+let swordCooldown = 0;
 let arrowCooldown = 0;
 let rollCooldown = 0;
 
@@ -73,16 +94,26 @@ const player = {
   h: 86,
   vx: 0,
   vy: 0,
-  speed: 5.8,
-  jump: -15,
+  speed: 5.9,
+  jump: -15.2,
   onGround: false,
   direction: 1,
   health: 100,
-  arrows: 10,
+  hasBow: false,
+  arrows: 0,
   jumpsLeft: 2,
   rolling: false,
   rollTimer: 0,
-  invincibleTimer: 0
+  invincibleTimer: 0,
+  hasDog: false
+};
+
+const dog = {
+  x: 60,
+  y: 0,
+  w: 70,
+  h: 48,
+  attackCooldown: 0
 };
 
 let zombies = [];
@@ -90,6 +121,7 @@ let coins = [];
 let arrows = [];
 let pits = [];
 let spikes = [];
+let platforms = [];
 
 const boss = {
   active: false,
@@ -120,7 +152,7 @@ function groundY() {
 
 function resetLevel(num) {
   level = num;
-  worldWidth = num < 3 ? 3000 : 3900;
+  worldWidth = num < 3 ? 3100 : 4000;
 
   player.x = 100;
   player.y = groundY() - player.h;
@@ -135,11 +167,12 @@ function resetLevel(num) {
   arrows = [];
   pits = [];
   spikes = [];
+  platforms = [];
 
   boss.active = false;
   boss.dead = false;
   boss.health = boss.maxHealth;
-  boss.x = worldWidth - 650;
+  boss.x = worldWidth - 680;
   boss.y = groundY() - 310;
   boss.fireballs = [];
 
@@ -152,49 +185,60 @@ function createLevel(num) {
 
   for (let i = 0; i < 7 + num * 3; i++) {
     zombies.push({
-      x: 500 + i * 230,
+      x: 520 + i * 230,
       y: gy - 72,
       w: 50,
       h: 72,
-      vx: i % 2 === 0 ? 1.1 : -1.1,
+      vx: i % 2 === 0 ? 1.05 : -1.05,
       health: 100 + num * 35,
       dead: false
     });
   }
 
-  for (let i = 0; i < 20; i++) {
-    coins.push({
-      x: 260 + i * 140,
-      y: gy - 130 - Math.sin(i) * 50,
-      r: 13,
-      taken: false
-    });
-  }
+  coins = [
+    { x: 280, y: gy - 130, r: 13, taken: false },
+    { x: 430, y: gy - 155, r: 13, taken: false },
+    { x: 650, y: gy - 210, r: 13, taken: false },
+    { x: 960, y: gy - 150, r: 13, taken: false },
+    { x: 1250, y: gy - 220, r: 13, taken: false },
+    { x: 1550, y: gy - 150, r: 13, taken: false },
+    { x: 1820, y: gy - 220, r: 13, taken: false },
+    { x: 2140, y: gy - 150, r: 13, taken: false },
+    { x: 2480, y: gy - 205, r: 13, taken: false },
+    { x: 2790, y: gy - 135, r: 13, taken: false }
+  ];
 
   pits = [
-    { x: 760, w: 120 },
-    { x: 1420, w: 160 },
-    { x: 2180, w: 135 }
+    { x: 770, w: 135 },
+    { x: 1460, w: 170 },
+    { x: 2240, w: 150 }
   ];
 
   if (num >= 2) {
-    pits.push({ x: 2550, w: 180 });
+    pits.push({ x: 2660, w: 185 });
   }
 
   spikes = [
-    { x: 980, y: gy - 26, w: 120, h: 26 },
-    { x: 1720, y: gy - 26, w: 140, h: 26 }
+    { x: 1010, y: gy - 27, w: 120, h: 27 },
+    { x: 1760, y: gy - 27, w: 150, h: 27 }
   ];
 
   if (num >= 2) {
-    spikes.push({ x: 2350, y: gy - 26, w: 160, h: 26 });
+    spikes.push({ x: 2380, y: gy - 27, w: 165, h: 27 });
   }
+
+  platforms = [
+    { x: 610, y: gy - 145, w: 180, h: 20 },
+    { x: 1170, y: gy - 180, w: 210, h: 20 },
+    { x: 1660, y: gy - 155, w: 190, h: 20 },
+    { x: 2440, y: gy - 165, w: 220, h: 20 }
+  ];
 
   if (num === 3) {
     boss.active = true;
     zombies.push(
-      { x: worldWidth - 1100, y: gy - 72, w: 50, h: 72, vx: 1, health: 180, dead: false },
-      { x: worldWidth - 950, y: gy - 72, w: 50, h: 72, vx: -1, health: 180, dead: false }
+      { x: worldWidth - 1160, y: gy - 72, w: 50, h: 72, vx: 1, health: 190, dead: false },
+      { x: worldWidth - 980, y: gy - 72, w: 50, h: 72, vx: -1, health: 190, dead: false }
     );
   }
 }
@@ -216,29 +260,28 @@ function once(k) {
   return false;
 }
 
+function toggleShop(open) {
+  shopOpen = open;
+  shopEl.style.display = shopOpen ? "block" : "none";
+}
+
 function update() {
   if (!running || gameEnded) return;
 
-  if (once("b") || once("ב")) {
-    shopOpen = !shopOpen;
-    shopEl.style.display = shopOpen ? "block" : "none";
-  }
+  if (once("b") || once("ב")) toggleShop(!shopOpen);
 
   if (shopOpen) {
-    if (once("1") && money >= 20) {
-      money -= 20;
-      player.arrows += 5;
-    }
     updateHud();
     return;
   }
 
-  bgOffset += 0.22;
+  bgOffset += 0.18;
 
-  if (attackCooldown > 0) attackCooldown--;
+  if (swordCooldown > 0) swordCooldown--;
   if (arrowCooldown > 0) arrowCooldown--;
   if (rollCooldown > 0) rollCooldown--;
   if (player.invincibleTimer > 0) player.invincibleTimer--;
+  if (dog.attackCooldown > 0) dog.attackCooldown--;
 
   player.vx = 0;
 
@@ -260,15 +303,16 @@ function update() {
     player.jumpsLeft--;
   }
 
-  if ((once("r") || once("ר")) && rollCooldown <= 0) {
-    startRoll();
-  }
+  if ((once("r") || once("ר")) && rollCooldown <= 0) startRoll();
 
-  if ((keys["x"] || keys["ס"]) && attackCooldown <= 0) {
-    axeAttack();
-  }
+  if ((keys["x"] || keys["ס"]) && swordCooldown <= 0) swordAttack();
 
-  if ((keys["v"] || keys["ה"]) && arrowCooldown <= 0 && player.arrows > 0) {
+  if (
+    (keys["v"] || keys["ה"]) &&
+    arrowCooldown <= 0 &&
+    player.hasBow &&
+    player.arrows > 0
+  ) {
     shootArrow();
   }
 
@@ -279,12 +323,25 @@ function update() {
   player.y += player.vy;
 
   const gy = groundY();
+  player.onGround = false;
 
   if (player.y + player.h > gy) {
     player.y = gy - player.h;
     player.vy = 0;
     player.onGround = true;
     player.jumpsLeft = 2;
+  }
+
+  for (const p of platforms) {
+    const falling = player.vy >= 0;
+    const above = player.y + player.h <= p.y + player.vy + 8;
+
+    if (falling && above && rects(player, p)) {
+      player.y = p.y - player.h;
+      player.vy = 0;
+      player.onGround = true;
+      player.jumpsLeft = 2;
+    }
   }
 
   player.x = Math.max(0, Math.min(player.x, worldWidth - player.w));
@@ -295,20 +352,16 @@ function update() {
   updateArrows();
   updateCoins();
 
-  if (boss.active && !boss.dead) {
-    updateBoss();
-  }
+  if (player.hasDog) updateDog();
+
+  if (boss.active && !boss.dead) updateBoss();
 
   cameraX = player.x - W * 0.38;
   cameraX = Math.max(0, Math.min(cameraX, worldWidth - W));
 
-  if (player.x > worldWidth - 140 && level < 3) {
-    resetLevel(level + 1);
-  }
+  if (player.x > worldWidth - 140 && level < 3) resetLevel(level + 1);
 
-  if (player.health <= 0) {
-    endGame("הפסדת! מתת בקרב או נפלת לבור 💀");
-  }
+  if (player.health <= 0) endGame("הפסדת! הילד האחרון בעולם נפל בקרב 💀");
 
   updateHud();
 }
@@ -327,9 +380,7 @@ function updateRoll() {
   player.rollTimer--;
   player.vx = player.direction * 11;
 
-  if (player.rollTimer <= 0) {
-    player.rolling = false;
-  }
+  if (player.rollTimer <= 0) player.rolling = false;
 }
 
 function checkPits() {
@@ -343,7 +394,7 @@ function checkPits() {
 
     if (overPit) {
       player.health = 0;
-      endGame("נפלת לבור! המשחק נגמר 🕳️");
+      endGame("נפלת לבור. המשחק נגמר 🕳️");
     }
   }
 }
@@ -361,19 +412,19 @@ function checkSpikes() {
   }
 }
 
-function axeAttack() {
-  attackCooldown = 22;
+function swordAttack() {
+  swordCooldown = 18;
 
   const hit = {
-    x: player.direction === 1 ? player.x + 35 : player.x - 70,
-    y: player.y + 22,
-    w: 78,
-    h: 52
+    x: player.direction === 1 ? player.x + 34 : player.x - 72,
+    y: player.y + 20,
+    w: 82,
+    h: 55
   };
 
   for (const z of zombies) {
     if (!z.dead && rects(hit, z)) {
-      z.health -= 130;
+      z.health -= 135;
       if (z.health <= 0) {
         z.dead = true;
         money += 15;
@@ -381,9 +432,7 @@ function axeAttack() {
     }
   }
 
-  if (boss.active && !boss.dead && rects(hit, boss)) {
-    boss.health -= 95;
-  }
+  if (boss.active && !boss.dead && rects(hit, boss)) boss.health -= 100;
 }
 
 function shootArrow() {
@@ -393,9 +442,9 @@ function shootArrow() {
   arrows.push({
     x: player.direction === 1 ? player.x + 48 : player.x - 20,
     y: player.y + 34,
-    w: 44,
+    w: 46,
     h: 7,
-    vx: player.direction * 13,
+    vx: player.direction * 13.5,
     remove: false
   });
 }
@@ -406,19 +455,13 @@ function updateZombies() {
 
     z.x += z.vx;
 
-    if (z.x < 350 || z.x > worldWidth - 400) {
-      z.vx *= -1;
-    }
+    if (z.x < 350 || z.x > worldWidth - 400) z.vx *= -1;
 
     for (const p of pits) {
-      if (z.x > p.x - 30 && z.x < p.x + p.w + 30) {
-        z.vx *= -1;
-      }
+      if (z.x > p.x - 30 && z.x < p.x + p.w + 30) z.vx *= -1;
     }
 
-    if (Math.random() < 0.01) {
-      z.vx *= -1;
-    }
+    if (Math.random() < 0.01) z.vx *= -1;
 
     if (rects(player, z) && player.invincibleTimer <= 0) {
       player.health -= player.rolling ? 0 : 9;
@@ -429,13 +472,41 @@ function updateZombies() {
   }
 }
 
+function updateDog() {
+  dog.x += (player.x - 85 - dog.x) * 0.08;
+  dog.y += (player.y + 34 - dog.y) * 0.08;
+
+  let target = null;
+
+  for (const z of zombies) {
+    if (!z.dead && Math.abs(z.x - dog.x) < 220) {
+      target = z;
+      break;
+    }
+  }
+
+  if (!target && boss.active && !boss.dead && Math.abs(boss.x - dog.x) < 320) {
+    target = boss;
+  }
+
+  if (target && dog.attackCooldown <= 0) {
+    target.health -= target === boss ? 45 : 80;
+    dog.attackCooldown = 35;
+
+    if (target !== boss && target.health <= 0) {
+      target.dead = true;
+      money += 10;
+    }
+  }
+}
+
 function updateArrows() {
   for (const a of arrows) {
     a.x += a.vx;
 
     for (const z of zombies) {
       if (!z.dead && rects(a, z)) {
-        z.health -= 85;
+        z.health -= 90;
         a.remove = true;
         if (z.health <= 0) {
           z.dead = true;
@@ -445,7 +516,7 @@ function updateArrows() {
     }
 
     if (boss.active && !boss.dead && rects(a, boss)) {
-      boss.health -= 75;
+      boss.health -= 80;
       a.remove = true;
     }
   }
@@ -491,7 +562,7 @@ function updateBoss() {
 
   boss.y += wave;
 
-  boss.x = Math.max(worldWidth - 900, Math.min(boss.x, worldWidth - 260));
+  boss.x = Math.max(worldWidth - 930, Math.min(boss.x, worldWidth - 260));
   boss.y = Math.max(groundY() - 360, Math.min(boss.y, groundY() - 220));
 
   if (boss.cooldown <= 0) {
@@ -526,8 +597,10 @@ function updateBoss() {
 
   if (boss.health <= 0) {
     boss.dead = true;
+    player.hasDog = true;
     money += 300;
-    endGame("ניצחת! הבסת את דרקון האש 🏆");
+    bossHud.style.display = "none";
+    endGame("ניצחת את הדרקון וקיבלת כלב רועה בלגי שיעזור לך 🐕🏆");
   }
 }
 
@@ -536,6 +609,8 @@ function updateHud() {
   moneyEl.textContent = money;
   arrowsEl.textContent = player.arrows;
   levelEl.textContent = level;
+  bowStatusEl.textContent = player.hasBow ? "יש" : "אין";
+  dogStatusEl.textContent = player.hasDog ? "רועה בלגי" : "אין";
 
   if (boss.active && !boss.dead) {
     bossHud.style.display = "block";
@@ -565,8 +640,9 @@ function draw() {
   ctx.save();
   ctx.translate(-cameraX, 0);
 
-  drawWorldDetails();
+  drawWorld();
   drawPits();
+  drawPlatforms();
   drawSpikes();
   drawCoins();
   drawZombies();
@@ -577,6 +653,9 @@ function draw() {
   }
 
   drawArrows();
+
+  if (player.hasDog) drawDog();
+
   drawPlayer();
 
   ctx.restore();
@@ -588,34 +667,35 @@ function drawBackground() {
   const gy = groundY();
 
   const sky = ctx.createLinearGradient(0, 0, 0, H);
-  sky.addColorStop(0, "#38bdf8");
-  sky.addColorStop(0.55, "#bfdbfe");
-  sky.addColorStop(1, "#ecfeff");
+  sky.addColorStop(0, "#0284c7");
+  sky.addColorStop(0.45, "#7dd3fc");
+  sky.addColorStop(0.8, "#e0f2fe");
+  sky.addColorStop(1, "#f8fafc");
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, W, H);
 
   ctx.fillStyle = "rgba(255,255,255,0.86)";
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 9; i++) {
     const x = ((i * 270 - bgOffset) % (W + 320)) - 180;
     const y = 70 + (i % 3) * 58;
     cloud(x, y, 1);
   }
 
   ctx.save();
-  ctx.translate(-cameraX * 0.16, 0);
-  for (let i = 0; i < 15; i++) {
+  ctx.translate(-cameraX * 0.15, 0);
+  for (let i = 0; i < 16; i++) {
     const x = i * 330;
     ctx.fillStyle = i % 2 ? "#64748b" : "#475569";
     ctx.beginPath();
     ctx.moveTo(x, gy);
-    ctx.lineTo(x + 160, gy - 290);
+    ctx.lineTo(x + 160, gy - 300);
     ctx.lineTo(x + 330, gy);
     ctx.closePath();
     ctx.fill();
 
     ctx.fillStyle = "#e0f2fe";
     ctx.beginPath();
-    ctx.moveTo(x + 160, gy - 290);
+    ctx.moveTo(x + 160, gy - 300);
     ctx.lineTo(x + 112, gy - 205);
     ctx.lineTo(x + 205, gy - 205);
     ctx.closePath();
@@ -633,7 +713,7 @@ function cloud(x, y, s) {
   ctx.fill();
 }
 
-function drawWorldDetails() {
+function drawWorld() {
   const gy = groundY();
 
   ctx.fillStyle = "#15803d";
@@ -645,7 +725,7 @@ function drawWorldDetails() {
   }
 
   ctx.fillStyle = "#92400e";
-  ctx.fillRect(0, gy + 50, worldWidth, 80);
+  ctx.fillRect(0, gy + 50, worldWidth, 90);
 
   ctx.fillStyle = "#fde68a";
   ctx.font = "bold 28px Arial";
@@ -657,21 +737,31 @@ function drawPits() {
 
   for (const p of pits) {
     ctx.fillStyle = "#020617";
-    ctx.fillRect(p.x, gy - 5, p.w, H - gy + 10);
+    ctx.fillRect(p.x, gy - 5, p.w, H - gy + 20);
 
-    ctx.fillStyle = "#111827";
-    ctx.fillRect(p.x - 10, gy - 8, 10, 16);
-    ctx.fillRect(p.x + p.w, gy - 8, 10, 16);
+    const g = ctx.createLinearGradient(p.x, gy, p.x, H);
+    g.addColorStop(0, "#0f172a");
+    g.addColorStop(1, "#000000");
+    ctx.fillStyle = g;
+    ctx.fillRect(p.x + 8, gy, p.w - 16, H - gy);
+  }
+}
 
-    ctx.fillStyle = "#ef4444";
-    ctx.font = "bold 20px Arial";
-    ctx.fillText("בור!", p.x + p.w / 2 - 20, gy - 22);
+function drawPlatforms() {
+  for (const p of platforms) {
+    ctx.fillStyle = "#854d0e";
+    roundRect(p.x, p.y, p.w, p.h, 8);
+    ctx.fill();
+
+    ctx.fillStyle = "#22c55e";
+    roundRect(p.x, p.y - 8, p.w, 10, 8);
+    ctx.fill();
   }
 }
 
 function drawSpikes() {
   for (const s of spikes) {
-    ctx.fillStyle = "#9ca3af";
+    ctx.fillStyle = "#cbd5e1";
     const count = Math.floor(s.w / 22);
 
     for (let i = 0; i < count; i++) {
@@ -682,7 +772,7 @@ function drawSpikes() {
       ctx.lineTo(x + 22, s.y + s.h);
       ctx.closePath();
       ctx.fill();
-      ctx.strokeStyle = "#374151";
+      ctx.strokeStyle = "#475569";
       ctx.stroke();
     }
   }
@@ -751,24 +841,37 @@ function drawPlayer() {
   ctx.arc(x + 24 + dir * 2, y + 23, 7, 0, Math.PI);
   ctx.stroke();
 
-  ctx.strokeStyle = "#92400e";
-  ctx.lineWidth = 4;
+  // sword always held
+  ctx.strokeStyle = "#78350f";
+  ctx.lineWidth = 5;
   ctx.beginPath();
-  ctx.arc(x + 10, y + 36, 18, -Math.PI / 2, Math.PI / 2);
+  ctx.moveTo(x + 25, y + 42);
+  ctx.lineTo(x + 25 + dir * 36, y + 55);
   ctx.stroke();
 
-  if (attackCooldown > 10) {
-    ctx.strokeStyle = "#78350f";
+  ctx.fillStyle = "#e5e7eb";
+  ctx.beginPath();
+  ctx.moveTo(x + 25 + dir * 36, y + 55);
+  ctx.lineTo(x + 25 + dir * 68, y + 45);
+  ctx.lineTo(x + 25 + dir * 43, y + 65);
+  ctx.closePath();
+  ctx.fill();
+
+  if (player.hasBow) {
+    ctx.strokeStyle = "#92400e";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(x + 10, y + 36, 18, -Math.PI / 2, Math.PI / 2);
+    ctx.stroke();
+  }
+
+  if (swordCooldown > 10) {
+    ctx.strokeStyle = "#f8fafc";
     ctx.lineWidth = 7;
     ctx.beginPath();
     ctx.moveTo(x + 28, y + 34);
-    ctx.lineTo(x + 28 + dir * 62, y + 12);
+    ctx.lineTo(x + 28 + dir * 78, y + 12);
     ctx.stroke();
-
-    ctx.fillStyle = "#d1d5db";
-    ctx.beginPath();
-    ctx.ellipse(x + 28 + dir * 72, y + 8, 17, 10, 0.4 * dir, 0, Math.PI * 2);
-    ctx.fill();
   }
 
   ctx.restore();
@@ -790,6 +893,70 @@ function drawRollingHero() {
   ctx.beginPath();
   ctx.arc(5, -10, 12, 0, Math.PI * 2);
   ctx.fill();
+}
+
+function drawDog() {
+  const x = dog.x;
+  const y = dog.y + 30;
+  const run = Math.sin(Date.now() / 85) * 4;
+
+  ctx.save();
+
+  ctx.fillStyle = "rgba(0,0,0,0.25)";
+  ctx.beginPath();
+  ctx.ellipse(x + 35, y + 50, 42, 9, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Belgian Malinois colors
+  ctx.fillStyle = "#b45309";
+  ctx.beginPath();
+  ctx.ellipse(x + 35, y + 25, 42, 23, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#92400e";
+  ctx.beginPath();
+  ctx.arc(x + 70, y + 12, 20, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#111827";
+  ctx.beginPath();
+  ctx.ellipse(x + 79, y + 16, 12, 9, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#111827";
+  ctx.beginPath();
+  ctx.moveTo(x + 58, y - 2);
+  ctx.lineTo(x + 52, y - 22);
+  ctx.lineTo(x + 68, y - 2);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(x + 76, y - 2);
+  ctx.lineTo(x + 87, y - 22);
+  ctx.lineTo(x + 88, y + 3);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.fillStyle = "#fef3c7";
+  ctx.beginPath();
+  ctx.arc(x + 75, y + 8, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#78350f";
+  ctx.fillRect(x + 8, y + 38 + run, 9, 22);
+  ctx.fillRect(x + 28, y + 38 - run, 9, 22);
+  ctx.fillRect(x + 50, y + 38 + run, 9, 22);
+  ctx.fillRect(x + 66, y + 38 - run, 9, 22);
+
+  ctx.strokeStyle = "#92400e";
+  ctx.lineWidth = 8;
+  ctx.beginPath();
+  ctx.moveTo(x + 2, y + 22);
+  ctx.quadraticCurveTo(x - 22, y + 7, x - 27, y - 8);
+  ctx.stroke();
+
+  ctx.restore();
 }
 
 function drawZombies() {
@@ -834,10 +1001,6 @@ function drawZombies() {
     ctx.moveTo(x + 14, y + 37);
     ctx.lineTo(x + 34, y + 37);
     ctx.stroke();
-
-    ctx.fillStyle = "#065f46";
-    ctx.fillRect(x + 5, y + 55, 10, 22);
-    ctx.fillRect(x + 34, y + 55, 10, 22);
   }
 }
 
@@ -1028,9 +1191,7 @@ function loop() {
   update();
   draw();
 
-  for (const k in pressed) {
-    pressed[k] = false;
-  }
+  for (const k in pressed) pressed[k] = false;
 
   requestAnimationFrame(loop);
 }
