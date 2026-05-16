@@ -3,19 +3,22 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Dragon Adventure</title>
+  <title>הילד האחרון בעולם</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <canvas id="game"></canvas>
 
   <div id="hud">
+    <div>🎮 הילד האחרון בעולם</div>
     <div>❤️ חיים: <span id="health">100</span></div>
     <div>🪙 כסף: <span id="money">0</span></div>
-    <div>🏹 חצים: <span id="arrows">10</span></div>
+    <div>🏹 קשת: <span id="bowStatus">אין</span></div>
+    <div>➶ חצים: <span id="arrows">0</span></div>
+    <div>🐕 כלב: <span id="dogStatus">אין</span></div>
     <div>⭐ שלב: <span id="level">1</span></div>
     <div class="small">
-      חצים/A/D לזוז | רווח דאבל ג׳אמפ | V/ה חץ | X/ס גרזן | R/ר גלגול | B/ב חנות
+      חצים/A/D לזוז | רווח דאבל־ג׳אמפ | X/ס חרב | V/ה חץ | R/ר גלגול | B/ב חנות
     </div>
   </div>
 
@@ -26,15 +29,24 @@
   </div>
 
   <div id="shop">
-    <h2>🏪 חנות</h2>
-    <p>יש לך קשת שמגיעה עם 10 חצים.</p>
-    <p>לחץ 1 כדי לקנות עוד 5 חצים ב־20 מטבעות.</p>
-    <p>לחץ B או ב כדי לצאת.</p>
+    <h2>🏪 חנות הישרדות</h2>
+
+    <button class="shopItem" id="buyBow">
+      🏹 קנה קשת + 10 חצים<br>
+      <span>מחיר: 40 מטבעות</span>
+    </button>
+
+    <button class="shopItem" id="buyArrows">
+      ➶ קנה 5 חצים<br>
+      <span>מחיר: 20 מטבעות</span>
+    </button>
+
+    <button class="closeShop" id="closeShop">סגור חנות</button>
   </div>
 
   <div id="start">
-    <h1>🐉 Dragon Adventure</h1>
-    <p>הבס זומבים, קפוץ מעל בורות, התחמק ממכשולים, ואז הילחם בדרקון.</p>
+    <h1>🌍 הילד האחרון בעולם</h1>
+    <p>הבס זומבים, קפוץ על פלטפורמות, התחמק מבורות, קנה קשת, ונצח את הדרקון.</p>
     <button onclick="startGame()">התחל משחק</button>
   </div>
 
